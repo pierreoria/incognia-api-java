@@ -207,7 +207,64 @@ public class IncogniaAPI {
         "api/v2/onboarding/signups", postSignupRequestBody, SignupAssessment.class);
   }
 
-  //aqui precisa de  docstrings
+  /**
+   * Registers a new transaction for the given request. Check <a
+   * href="https://dash.incognia.com/api-reference#operation/transaction-post">the docs</a><br>
+   * Example:
+   *
+   * <pre>{@code
+   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
+   * try {
+   *   Map<AddressType, Address> addresses =
+   *       Map.of(
+   *           AddressType.SHIPPING,
+   *               Address.builder()
+   *                   .structuredAddress(
+   *                       StructuredAddress.builder()
+   *                           .countryCode("US")
+   *                           .countryName("United States")
+   *                           .locale("en-US")
+   *                           .state("CA")
+   *                           .city("San Francisco")
+   *                           .street("Main St")
+   *                           .number("123")
+   *                           .postalCode("94105")
+   *                           .build())
+   *                   .coordinates(new Coordinates(37.7749, -122.4194))
+   *                   .build());
+   *
+   *   RegisterTransactionRequest transactionRequest =
+   *       RegisterTransactionRequest.builder()
+   *           .installationId("installation-id")
+   *           .requestToken("request-token")
+   *           .policyId("policy-id")
+   *           .appVersion("1.2.3")
+   *           .deviceOs("android")
+   *           .accountId("user-account-001")
+   *           .externalId("ext-user-id-789")
+   *           .storeId("store-987")
+   *           .type("payment") // e.g. "login" or "payment"
+   *           .addresses(addresses)
+   *           .customProperties(Map.of("key", "value"))
+   *           .personId(PersonID.ofCPF("11725849070"))
+   *           // Optional: evaluation query parameter (eval=true/false)
+   *           .shouldEvaluateTransaction(true)
+   *           .build();
+   *
+   *   TransactionAssessment assessment = api.registerTransaction(transactionRequest);
+   * } catch (IncogniaAPIException e) {
+   *   // Some api error happened (invalid data, invalid credentials)
+   * } catch (IncogniaException e) {
+   *   // Something unexpected happened
+   * }
+   * }</pre>
+   *
+   * @param request the {@link RegisterTransactionRequest} model that contains the properties we need
+   *     to make an assessment.
+   * @return the assessment
+   * @throws IncogniaAPIException in case of api errors
+   * @throws IncogniaException in case of unexpected errors
+   */
   public TransactionAssessment registerTransaction(RegisterTransactionRequest request)
       throws IncogniaException {
     Asserts.assertNotNull(request, "register transaction request");
@@ -250,6 +307,49 @@ public class IncogniaAPI {
         queryParameters);
   }
 
+  /**
+   * Registers a new feedback event (e.g. marking a previous assessment as fraud/legit/reset). Check <a
+   * href="https://dash.incognia.com/api-reference#operation/feedback-post">the docs</a><br>
+   * Example:
+   *
+   * <pre>{@code
+   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
+   * try {
+   *   Instant now = Instant.now();
+   *   Instant expiresAt = now.plus(1, ChronoUnit.DAYS);
+   *
+   *   RegisterFeedbackRequest feedbackRequest =
+   *       RegisterFeedbackRequest.builder()
+   *           .feedbackEvent(FeedbackEvent.RESET)
+   *           .occurredAt(now)
+   *           .installationId("installation-id")   // optional, but recommended when available
+   *           .sessionToken("session-token")       // optional
+   *           .accountId("user-account-001")       // optional, depending on your identifiers
+   *           .externalId("ext-user-id-789")       // optional
+   *           .requestToken("request-token")       // optional
+   *           .signupId("signup-id-123")           // optional - set the identifier that matches the event target
+   *           .loginId("login-id-456")             // optional
+   *           .paymentId("payment-id-789")         // optional
+   *           .personId(PersonID.ofCPF("11725849070")) // optional
+   *           .expiresAt(expiresAt)                // optional (used by some feedback events)
+   *           .build();
+   *
+   *   // dryRun=true validates/registers without persisting the feedback on the server
+   *   api.registerFeedback(feedbackRequest, false);
+   * } catch (IncogniaAPIException e) {
+   *   // Some api error happened (invalid data, invalid credentials)
+   * } catch (IncogniaException e) {
+   *   // Something unexpected happened
+   * }
+   * }</pre>
+   *
+   * @param request the {@link RegisterFeedbackRequest} model that contains the feedback event and the
+   *     identifiers used to associate it with a previous assessment.
+   * @param dryRun whether the request should be executed in dry-run mode (sent with the {@code dry_run}
+   *     query parameter).
+   * @throws IncogniaAPIException in case of api errors
+   * @throws IncogniaException in case of unexpected errors
+   */
   public void registerFeedback(RegisterFeedbackRequest request, boolean dryRun)
       throws IncogniaException {
     Asserts.assertNotNull(request, "register feedback request");
