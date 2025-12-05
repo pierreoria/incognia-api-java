@@ -8,18 +8,17 @@ import com.incognia.common.utils.Asserts;
 import com.incognia.common.utils.ClientCredentials;
 import com.incognia.common.utils.CustomOptions;
 import com.incognia.feedback.FeedbackEvent;
-import com.incognia.feedback.FeedbackIdentifiers;
+import com.incognia.feedback.RegisterFeedbackRequest;
 import com.incognia.feedback.PostFeedbackRequestBody;
 import com.incognia.onboarding.PostSignupRequestBody;
 import com.incognia.onboarding.RegisterSignupRequest;
-import com.incognia.onboarding.RegisterWebSignupRequest;
 import com.incognia.onboarding.SignupAssessment;
 import com.incognia.transaction.AddressType;
+import com.incognia.transaction.RegisterTransactionRequest;
 import com.incognia.transaction.PostTransactionRequestBody;
 import com.incognia.transaction.TransactionAddress;
 import com.incognia.transaction.TransactionAssessment;
 import com.incognia.transaction.login.RegisterLoginRequest;
-import com.incognia.transaction.login.RegisterWebLoginRequest;
 import com.incognia.transaction.payment.RegisterPaymentRequest;
 import java.time.Instant;
 import java.util.HashMap;
@@ -190,6 +189,7 @@ public class IncogniaAPI {
         PostSignupRequestBody.builder()
             .installationId(request.getInstallationId())
             .requestToken(request.getRequestToken())
+            .sessionToken(request.getSessionToken())
             .appVersion(request.getAppVersion())
             .deviceOs(
                 Optional.ofNullable(request.getDeviceOs()).map(String::toLowerCase).orElse(null))
@@ -207,39 +207,14 @@ public class IncogniaAPI {
         "api/v2/onboarding/signups", postSignupRequestBody, SignupAssessment.class);
   }
 
-  /**
-   * Registers a login to obtain a risk assessment. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/transactions-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *     RegisterLoginRequest loginRequest = RegisterLoginRequest.builder()
-   *         .requestToken("request-token")
-   *         .accountId("account-id")
-   *         .externalId("external-id")
-   *         .policyId("policy-id")
-   *         .evaluateTransaction(true) // can be omitted as it uses true as the default value
-   *         .build();
-   *      TransactionAssessment assessment = api.registerLogin(loginRequest);
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterLoginRequest} model with the properties we need to make the
-   *     assessment
-   * @return the assessment for the login
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public TransactionAssessment registerLogin(RegisterLoginRequest request)
+  //aqui precisa de  docstrings
+  public TransactionAssessment registerTransaction(RegisterTransactionRequest request)
       throws IncogniaException {
-    Asserts.assertNotNull(request, "register login request");
+    Asserts.assertNotNull(request, "register transaction request");
     Asserts.assertNotEmpty(request.getAccountId(), "account id");
+    Asserts.assertNotEmpty(request.getType(), "type");
+    List<TransactionAddress> transactionAddresses =
+        addressMapToTransactionAddresses(request.getAddresses());
     PostTransactionRequestBody requestBody =
         PostTransactionRequestBody.builder()
             .installationId(request.getInstallationId())
@@ -254,224 +229,20 @@ public class IncogniaAPI {
             .relatedAccountId(request.getRelatedAccountId())
             .customProperties(request.getCustomProperties())
             .personId(request.getPersonId())
-            .type("login")
-            .build();
-
-    Map<String, String> queryParameters = new HashMap<>();
-    if (request.shouldEvaluateTransaction() != null) {
-      queryParameters.put(EVALUATION_PARAMETER, request.shouldEvaluateTransaction().toString());
-    }
-    return tokenAwareNetworkingClient.doPost(
-        "api/v2/authentication/transactions",
-        requestBody,
-        TransactionAssessment.class,
-        queryParameters);
-  }
-
-  /**
-   * Registers a web login to obtain a risk assessment. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/transactions-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *     RegisterLoginRequest loginRequest = RegisterLoginRequest.builder()
-   *         .accountId("account-id")
-   *         .externalId("external-id")
-   *         .requestToken("request-token")
-   *         .policyId("policy-id")
-   *         .evaluateTransaction(true) // can be omitted as it uses true as the default value
-   *         .build();
-   *      TransactionAssessment assessment = api.registerLogin(loginRequest);
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterWebLoginRequest} model with the properties we need to make
-   *     the assessment
-   * @return the assessment for the login
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public TransactionAssessment registerWebLogin(RegisterWebLoginRequest request)
-      throws IncogniaException {
-    Asserts.assertNotNull(request, "register login request");
-    Asserts.assertNotEmpty(request.getAccountId(), "account id");
-    Asserts.assertNotEmpty(
-        Optional.ofNullable(request.getRequestToken()).orElseGet(request::getSessionToken),
-        "request token");
-    PostTransactionRequestBody requestBody =
-        PostTransactionRequestBody.builder()
-            .accountId(request.getAccountId())
-            .externalId(request.getExternalId())
-            .sessionToken(request.getSessionToken())
-            .requestToken(request.getRequestToken())
-            .policyId(request.getPolicyId())
-            .customProperties(request.getCustomProperties())
-            .personId(request.getPersonId())
-            .type("login")
-            .build();
-
-    Map<String, String> queryParameters = new HashMap<>();
-    if (request.shouldEvaluateTransaction() != null) {
-      queryParameters.put(EVALUATION_PARAMETER, request.shouldEvaluateTransaction().toString());
-    }
-    return tokenAwareNetworkingClient.doPost(
-        "api/v2/authentication/transactions",
-        requestBody,
-        TransactionAssessment.class,
-        queryParameters);
-  }
-
-  /**
-   * Registers a new signup for the given request token and address. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/signup-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *      RegisterWebSignupRequest webSignupRequest = RegisterWebSignupRequest.builder().requestToken(requestToken).address(address).build();
-   *      SignupAssessment assessment = api.registerSignup(webSignupRequest);
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterWebSignupRequest} model that contains the properties we need
-   *     to make an assessment.
-   * @return the assessment
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public SignupAssessment registerWebSignup(RegisterWebSignupRequest request)
-      throws IncogniaException {
-    Asserts.assertNotNull(request, "register signup request");
-    Asserts.assertNotEmpty(
-        Optional.ofNullable(request.getRequestToken()).orElseGet(request::getSessionToken),
-        "request token");
-    PostSignupRequestBody postSignupRequestBody =
-        PostSignupRequestBody.builder()
-            .sessionToken(request.getSessionToken())
-            .requestToken(request.getRequestToken())
-            .externalId(request.getExternalId())
-            .policyId(request.getPolicyId())
-            .accountId(request.getAccountId())
-            .customProperties(request.getCustomProperties())
-            .personId(request.getPersonId())
-            .build();
-    return tokenAwareNetworkingClient.doPost(
-        "api/v2/onboarding/signups", postSignupRequestBody, SignupAssessment.class);
-  }
-
-  /**
-   * Registers a payment to obtain a risk assessment. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/transactions-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *      Address address = Address address =
-   *         Address.builder()
-   *             .structuredAddress(
-   *                 StructuredAddress.builder()
-   *                     .countryCode("US")
-   *                     .countryName("United States of America")
-   *                     .locale("en-US")
-   *                     .state("NY")
-   *                     .city("New York City")
-   *                     .borough("Manhattan")
-   *                     .neighborhood("Midtown")
-   *                     .street("W 34th St.")
-   *                     .number("20")
-   *                     .complements("Floor 2")
-   *                     .postalCode("10001")
-   *                     .build())
-   *             .coordinates(new Coordinates(40.74836007062138, -73.98509720487937))
-   *             .build();
-   *      Map<AddressType, Address> addresses = Map.of(
-   *          AddressType.SHIPPING, address
-   *          AddressType.BILLING, address);
-   *
-   *      List<PaymentMethod> paymentMethods = new ArrayList<>();
-   *        paymentMethods.add(
-   *           PaymentMethod.builder()
-   *               .creditCardInfo(
-   *                   CardInfo.builder()
-   *                       .bin("123456")
-   *                       .expiryMonth("10")
-   *                       .expiryYear("2028")
-   *                       .lastFourDigits("4321")
-   *                       .build())
-   *               .type(PaymentType.CREDIT_CARD)
-   *               .build());
-   *
-   *      RegisterPaymentRequest registerPaymentRequest =
-   *          RegisterPaymentRequest.builder()
-   *              .requestToken("request-token")
-   *              .accountId("account-id")
-   *              .externalId("external-id")
-   *              .policyId("policy-id")
-   *              .addresses(addresses)
-   *              .evaluateTransaction(true) // can be omitted as it uses true as the default value
-   *              .paymentValue(PaymentValue.builder().currency("BRL").amount(10.0).build())
-   *              .paymentMethods(paymentMethods)
-   *              .build();
-   *
-   *      TransactionAssessment assessment = api.registerPayment(registerPaymentRequest);
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterPaymentRequest} with the fields we use to make an assessment
-   * @return the payment's risk assessment
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public TransactionAssessment registerPayment(RegisterPaymentRequest request)
-      throws IncogniaException {
-    Asserts.assertNotNull(request, "register payment request");
-    Asserts.assertNotEmpty(request.getAccountId(), "account id");
-    List<TransactionAddress> transactionAddresses =
-        addressMapToTransactionAddresses(request.getAddresses());
-    PostTransactionRequestBody requestBody =
-        PostTransactionRequestBody.builder()
-            .installationId(request.getInstallationId())
-            .requestToken(request.getRequestToken())
-            .appVersion(request.getAppVersion())
-            .deviceOs(
-                Optional.ofNullable(request.getDeviceOs()).map(String::toLowerCase).orElse(null))
-            .accountId(request.getAccountId())
-            .externalId(request.getExternalId())
-            .policyId(request.getPolicyId())
-            .type("payment")
-            .addresses(transactionAddresses)
-            .paymentValue(request.getPaymentValue())
-            .paymentMethods(request.getPaymentMethods())
-            .location(request.getLocation())
             .storeId(request.getStoreId())
-            .customProperties(request.getCustomProperties())
             .coupon(request.getCoupon())
-            .personId(request.getPersonId())
             .debtorAccount(request.getDebtorAccount())
             .creditorAccount(request.getCreditorAccount())
+            .paymentValue(request.getPaymentValue())
+            .paymentMethods(request.getPaymentMethods())
+            .type(request.getType())
+            .addresses(transactionAddresses)
             .build();
 
     Map<String, String> queryParameters = new HashMap<>();
     if (request.shouldEvaluateTransaction() != null) {
       queryParameters.put(EVALUATION_PARAMETER, request.shouldEvaluateTransaction().toString());
     }
-
     return tokenAwareNetworkingClient.doPost(
         "api/v2/authentication/transactions",
         requestBody,
@@ -479,64 +250,27 @@ public class IncogniaAPI {
         queryParameters);
   }
 
-  /**
-   * Shares feedback about a risk decision, improving the quality of risk assessments. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/feedbacks-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *      Instant timestamp = Instant.now();
-   *      client.registerFeedback(
-   *         FeedbackEvent.ACCOUNT_TAKEOVER,
-   *         timestamp,
-   *         FeedbackIdentifiers.builder()
-   *             .requestToken("request-token")
-   *             .accountId("account-id")
-   *             .externalId("external-id")
-   *             .signupId("c9ac2803-c868-4b7a-8323-8a6b96298ebe")
-   *             .build();
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param feedbackEvent type of feedback event
-   * @param timestamp Instant when the fraud or event happened
-   * @param identifiers the user's identifiers
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public void registerFeedback(
-      FeedbackEvent feedbackEvent, Instant timestamp, FeedbackIdentifiers identifiers)
+  public void registerFeedback(RegisterFeedbackRequest request, boolean dryRun)
       throws IncogniaException {
-    registerFeedback(feedbackEvent, timestamp, identifiers, false);
-  }
-
-  public void registerFeedback(
-      FeedbackEvent feedbackEvent,
-      Instant timestamp,
-      FeedbackIdentifiers identifiers,
-      boolean dryRun)
-      throws IncogniaException {
+    Asserts.assertNotNull(request, "register feedback request");
+    Asserts.assertNotNull(request.getFeedbackEvent(), "feedback event");
+    Asserts.assertNotNull(request.getOccurredAt(), "occurred at");
     PostFeedbackRequestBody requestBody =
         PostFeedbackRequestBody.builder()
-            .event(feedbackEvent)
-            .timestamp(timestamp.toEpochMilli())
-            .installationId(identifiers.getInstallationId())
-            .sessionToken(identifiers.getSessionToken())
-            .accountId(identifiers.getAccountId())
-            .loginId(identifiers.getLoginId())
-            .paymentId(identifiers.getPaymentId())
-            .signupId(identifiers.getSignupId())
-            .externalId(identifiers.getExternalId())
-            .requestToken(identifiers.getRequestToken())
-            .personId(identifiers.getPersonId())
+            .event(request.getFeedbackEvent())
+            .occurredAt(
+                Optional.ofNullable(request.getOccurredAt()).map(Instant::toString).orElse(null))
+            .installationId(request.getInstallationId())
+            .sessionToken(request.getSessionToken())
+            .accountId(request.getAccountId())
+            .loginId(request.getLoginId())
+            .paymentId(request.getPaymentId())
+            .signupId(request.getSignupId())
+            .externalId(request.getExternalId())
+            .requestToken(request.getRequestToken())
+            .personId(request.getPersonId())
             .expiresAt(
-                Optional.ofNullable(identifiers.getExpiresAt()).map(Instant::toString).orElse(null))
+                Optional.ofNullable(request.getExpiresAt()).map(Instant::toString).orElse(null))
             .build();
 
     Map<String, String> queryParameters = new HashMap<>();

@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 public class RegisterSignupRequest {
   String installationId;
   String requestToken;
+  String sessionToken;
   String appVersion;
   String deviceOs;
   @Nullable Address address;

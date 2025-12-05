@@ -23,26 +23,26 @@ import com.incognia.common.exceptions.IncogniaException;
 import com.incognia.common.utils.ClientCredentials;
 import com.incognia.common.utils.CustomOptions;
 import com.incognia.feedback.FeedbackEvent;
-import com.incognia.feedback.FeedbackIdentifiers;
+import com.incognia.feedback.RegisterFeedbackRequest;
 import com.incognia.feedback.PostFeedbackRequestBody;
 import com.incognia.fixtures.AddressFixture;
 import com.incognia.onboarding.RegisterSignupRequest;
 import com.incognia.onboarding.RegisterWebSignupRequest;
 import com.incognia.onboarding.SignupAssessment;
 import com.incognia.transaction.AddressType;
+import com.incognia.transaction.RegisterTransactionRequest;
 import com.incognia.transaction.PostTransactionRequestBody;
 import com.incognia.transaction.TransactionAddress;
 import com.incognia.transaction.TransactionAssessment;
 import com.incognia.transaction.login.RegisterLoginRequest;
-import com.incognia.transaction.login.RegisterWebLoginRequest;
-import com.incognia.transaction.payment.BankAccountInfo;
+import com.incognia.transaction.payment.FinancialAccount;
 import com.incognia.transaction.payment.CardInfo;
 import com.incognia.transaction.payment.Coupon;
 import com.incognia.transaction.payment.PaymentMethod;
 import com.incognia.transaction.payment.PaymentType;
 import com.incognia.transaction.payment.PaymentValue;
 import com.incognia.transaction.payment.PixKey;
-import com.incognia.transaction.payment.RegisterPaymentRequest;
+import com.incognia.transaction.payment.FinancialAccountHolderTaxId;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -387,8 +387,8 @@ class IncogniaAPITest {
     dispatcher.setExpectedCustomProperties(map);
     dispatcher.setExpectedPersonId(personId);
     mockServer.setDispatcher(dispatcher);
-    RegisterWebSignupRequest registerSignupRequest =
-        RegisterWebSignupRequest.builder()
+    RegisterSignupRequest registerSignupRequest =
+        RegisterSignupRequest.builder()
             .requestToken(requestToken)
             .accountId(accountId)
             .policyId(policyId)
@@ -396,7 +396,7 @@ class IncogniaAPITest {
             .customProperties(map)
             .personId(personId)
             .build();
-    SignupAssessment webSignupAssessment = client.registerWebSignup(registerSignupRequest);
+    SignupAssessment webSignupAssessment = client.registerSignup(registerSignupRequest);
     assertThat(webSignupAssessment)
         .extracting("id", "requestId", "riskAssessment", "deviceId")
         .containsExactly(
@@ -434,6 +434,7 @@ class IncogniaAPITest {
     assertThat(webSignupAssessment.getReasons()).containsExactly(expectedReason);
   }
 
+  // ok
   @ParameterizedTest
   @ValueSource(booleans = {true})
   @NullSource
@@ -454,18 +455,19 @@ class IncogniaAPITest {
             .policyId(policyId)
             .build());
     mockServer.setDispatcher(dispatcher);
-    RegisterLoginRequest loginRequest =
-        RegisterLoginRequest.builder()
+    RegisterTransactionRequest loginRequest =
+        RegisterTransactionRequest.builder()
+            .type("login")
             .requestToken(requestToken)
             .accountId(accountId)
             .evaluateTransaction(eval)
             .policyId(policyId)
             .build();
-    assertThatThrownBy(() -> clientWithLowTimeout.registerLogin(loginRequest))
+    assertThatThrownBy(() -> clientWithLowTimeout.registerTransaction(loginRequest))
         .isInstanceOf(IncogniaException.class)
         .hasMessage("network call timeout");
   }
-
+  //ok 
   @ParameterizedTest
   @ValueSource(booleans = {true})
   @NullSource
@@ -506,8 +508,9 @@ class IncogniaAPITest {
             .personId(personId)
             .build());
     mockServer.setDispatcher(dispatcher);
-    RegisterLoginRequest loginRequest =
-        RegisterLoginRequest.builder()
+    RegisterTransactionRequest loginRequest =
+        RegisterTransactionRequest.builder()
+            .type("login")
             .requestToken(requestToken)
             .accountId(accountId)
             .appVersion(appVersion)
@@ -520,10 +523,10 @@ class IncogniaAPITest {
             .customProperties(map)
             .personId(personId)
             .build();
-    TransactionAssessment transactionAssessment = client.registerLogin(loginRequest);
+    TransactionAssessment transactionAssessment = client.registerTransaction(loginRequest);
     assertTransactionAssessment(transactionAssessment);
   }
-
+  //esse precisa trocar de nome: web login n existe mais
   @ParameterizedTest
   @ValueSource(booleans = {true})
   @NullSource
@@ -552,8 +555,9 @@ class IncogniaAPITest {
             .personId(personId)
             .build());
     mockServer.setDispatcher(dispatcher);
-    RegisterWebLoginRequest loginRequest =
-        RegisterWebLoginRequest.builder()
+    RegisterTransactionRequest loginRequest =
+        RegisterTransactionRequest.builder()
+            .type("login")
             .accountId(accountId)
             .externalId(externalId)
             .evaluateTransaction(eval)
@@ -562,10 +566,10 @@ class IncogniaAPITest {
             .customProperties(customProperties)
             .personId(personId)
             .build();
-    TransactionAssessment transactionAssessment = client.registerWebLogin(loginRequest);
+    TransactionAssessment transactionAssessment = client.registerTransaction(loginRequest);
     assertTransactionAssessment(transactionAssessment);
   }
-
+    //esse
   @Test
   @DisplayName("should return an empty response")
   @SneakyThrows
@@ -587,15 +591,16 @@ class IncogniaAPITest {
             .customProperties(null)
             .build());
     mockServer.setDispatcher(dispatcher);
-    RegisterLoginRequest loginRequest =
-        RegisterLoginRequest.builder()
+    RegisterTransactionRequest loginRequest =
+        RegisterTransactionRequest.builder()
+            .type("login")
             .requestToken(requestToken)
             .accountId(accountId)
             .externalId(externalId)
             .evaluateTransaction(false)
             .policyId(policyId)
             .build();
-    TransactionAssessment transactionAssessment = client.registerLogin(loginRequest);
+    TransactionAssessment transactionAssessment = client.registerTransaction(loginRequest);
     assertThat(transactionAssessment).isEqualTo(TransactionAssessment.builder().build());
   }
 
@@ -670,12 +675,12 @@ class IncogniaAPITest {
     List<PixKey> pixKeys = new ArrayList<>();
     pixKeys.add(PixKey.builder().type("cpf").value("12345678901").build());
 
-    BankAccountInfo bankAccount =
-        BankAccountInfo.builder()
+    FinancialAccount bankAccount =
+        FinancialAccount.builder()
             .accountType("checking")
             .accountPurpose("general")
             .holderType("individual")
-            .holderTaxId(PersonID.builder().type("cpf").value("12345678901").build())
+            .holderTaxId(FinancialAccountHolderTaxId.builder().type("cpf").value("12345678901").build())
             .country("BR")
             .ispbCode("12345678")
             .branchCode("0000")
@@ -684,8 +689,9 @@ class IncogniaAPITest {
             .pixKeys(pixKeys)
             .build();
 
-    RegisterPaymentRequest paymentRequest =
-        RegisterPaymentRequest.builder()
+    RegisterTransactionRequest paymentRequest =
+        RegisterTransactionRequest.builder()
+            .type("payment")
             .requestToken(requestToken)
             .accountId(accountId)
             .appVersion(appVersion)
@@ -725,7 +731,7 @@ class IncogniaAPITest {
             .creditorAccount(bankAccount)
             .build());
     mockServer.setDispatcher(dispatcher);
-    TransactionAssessment transactionAssessment = client.registerPayment(paymentRequest);
+    TransactionAssessment transactionAssessment = client.registerTransaction(paymentRequest);
     assertTransactionAssessment(transactionAssessment);
   }
 
@@ -786,8 +792,9 @@ class IncogniaAPITest {
             .customProperties(null)
             .build());
     mockServer.setDispatcher(dispatcher);
-    RegisterPaymentRequest paymentRequest =
-        RegisterPaymentRequest.builder()
+    RegisterTransactionRequest paymentRequest =
+        RegisterTransactionRequest.builder()
+            .type("payment")
             .requestToken(requestToken)
             .accountId(accountId)
             .externalId(externalId)
@@ -797,7 +804,7 @@ class IncogniaAPITest {
             .paymentValue(paymentValue)
             .paymentMethods(paymentMethods)
             .build();
-    TransactionAssessment transactionAssessment = client.registerPayment(paymentRequest);
+    TransactionAssessment transactionAssessment = client.registerTransaction(paymentRequest);
     assertThat(transactionAssessment).isEqualTo(TransactionAssessment.builder().build());
   }
 
@@ -812,6 +819,7 @@ class IncogniaAPITest {
     String signupId = UUID.randomUUID().toString();
     Instant timestamp = Instant.now();
     PersonID personId = PersonID.ofCPF("12345678901");
+    String feedbackEvent = "account_takeover";
 
     dispatcher.setExpectedFeedbackRequestBody(
         PostFeedbackRequestBody.builder()
@@ -819,15 +827,15 @@ class IncogniaAPITest {
             .externalId(externalId)
             .signupId(signupId)
             .accountId(accountId)
-            .event(FeedbackEvent.ACCOUNT_TAKEOVER)
-            .timestamp(timestamp.toEpochMilli())
+            .event(feedbackEvent)
+            .occurredAt(timestamp.toString())
             .personId(personId)
             .build());
     mockServer.setDispatcher(dispatcher);
     client.registerFeedback(
-        FeedbackEvent.ACCOUNT_TAKEOVER,
-        timestamp,
-        FeedbackIdentifiers.builder()
+        RegisterFeedbackRequest.builder()
+            .feedbackEvent(feedbackEvent)
+            .occurredAt(timestamp)
             .requestToken(requestToken)
             .accountId(accountId)
             .externalId(externalId)
@@ -848,6 +856,7 @@ class IncogniaAPITest {
     String signupId = UUID.randomUUID().toString();
     Instant timestamp = Instant.now();
     Instant expiresAt = timestamp.plusSeconds(3600);
+    String feedbackEvent = "account_takeover";
 
     TokenAwareDispatcher dispatcher = new TokenAwareDispatcher(CLIENT_ID, CLIENT_SECRET);
     dispatcher.setExpectedFeedbackRequestBody(
@@ -856,15 +865,15 @@ class IncogniaAPITest {
             .externalId(externalId)
             .signupId(signupId)
             .accountId(accountId)
-            .event(FeedbackEvent.ACCOUNT_TAKEOVER)
-            .timestamp(timestamp.toEpochMilli())
+            .event(feedbackEvent)
+            .occurredAt(timestamp.toString())
             .expiresAt(expiresAt.toString())
             .build());
     mockServer.setDispatcher(dispatcher);
     client.registerFeedback(
-        FeedbackEvent.ACCOUNT_TAKEOVER,
-        timestamp,
-        FeedbackIdentifiers.builder()
+        RegisterFeedbackRequest.builder()
+            .feedbackEvent(feedbackEvent)
+            .occurredAt(timestamp)
             .requestToken(requestToken)
             .accountId(accountId)
             .externalId(externalId)
@@ -880,8 +889,9 @@ class IncogniaAPITest {
   void testRegisterPayment_whenAccountIdIsNotValid() {
     assertThatThrownBy(
             () ->
-                client.registerPayment(
-                    RegisterPaymentRequest.builder()
+                client.registerTransaction(
+                    RegisterTransactionRequest.builder()
+                        .type("payment")
                         .requestToken("request-token")
                         .accountId("")
                         .build()))
@@ -889,8 +899,9 @@ class IncogniaAPITest {
         .hasMessage("'account id' cannot be empty");
     assertThatThrownBy(
             () ->
-                client.registerPayment(
-                    RegisterPaymentRequest.builder()
+                client.registerTransaction(
+                    RegisterTransactionRequest.builder()
+                        .type("payment")
                         .requestToken("request-token")
                         .accountId(null)
                         .build()))
@@ -898,14 +909,17 @@ class IncogniaAPITest {
         .hasMessage("'account id' cannot be empty");
   }
 
+
+// aqui tem que dale mais um assert: faltando type
   @Test
   @DisplayName("should throw illegal argument exception with correct message")
   @SneakyThrows
   void testRegisterLogin_whenAccountIdIsNotValid() {
     assertThatThrownBy(
             () ->
-                client.registerLogin(
-                    RegisterLoginRequest.builder()
+                client.registerTransaction(
+                    RegisterTransactionRequest.builder()
+                        .type("login")
                         .requestToken("request token")
                         .accountId("")
                         .build()))
@@ -913,8 +927,9 @@ class IncogniaAPITest {
         .hasMessage("'account id' cannot be empty");
     assertThatThrownBy(
             () ->
-                client.registerLogin(
-                    RegisterLoginRequest.builder()
+                client.registerTransaction(
+                    RegisterTransactionRequest.builder()
+                        .type("login")
                         .requestToken("request token")
                         .accountId(null)
                         .build()))

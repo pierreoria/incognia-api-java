@@ -8,4 +8,6 @@ import lombok.Value;
 public class PaymentValue {
   Double amount;
   String currency;
+  Integer installments;
+  Double discountAmount;
 }

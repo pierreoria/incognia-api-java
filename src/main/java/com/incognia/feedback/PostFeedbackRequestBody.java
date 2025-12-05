@@ -7,8 +7,8 @@ import lombok.Value;
 @Value
 @Builder
 public class PostFeedbackRequestBody {
-  FeedbackEvent event;
-  Long timestamp;
+  String event;
+  String occurredAt;
   String accountId;
   String externalId;
   String installationId;
