@@ -118,6 +118,28 @@ public class TokenAwareDispatcher extends Dispatcher {
   }
 
   @SneakyThrows
+  private MockResponse handlePostTransaction(RecordedRequest request) {
+    assertThat(request.getHeader("Content-Type")).contains("application/json");
+    assertThat(request.getHeader("User-Agent")).isEqualTo(USER_AGENT_HEADER);
+    assertThat(request.getHeader("Authorization")).isEqualTo("Bearer " + token);
+    try {
+        byte[] bodyBytes = request.getBody().clone().readByteArray();
+        System.out.println("RAW JSON: " + new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8));
+        JsonNode actualJson = objectMapper.readTree(bodyBytes);
+        JsonNode expectedJson = objectMapper.valueToTree(expectedTransactionRequestBody);
+        assertThat(actualJson).isEqualTo(expectedJson);
+        String response = ResourceUtils.getResourceFileAsString("post_transaction_response.json");
+        System.out.println(response);
+        return new MockResponse().setResponseCode(200).setBody(response);
+    } catch (Throwable t) {
+        t.printStackTrace();
+        return new MockResponse()
+            .setResponseCode(400)
+            .setBody("Dispatcher failed: " + t.getClass().getName() + ": " + t.getMessage());
+    }
+  }
+
+  @SneakyThrows
   private MockResponse handlePostTransactionGivenFalseEval(RecordedRequest request) {
     assertThat(request.getHeader("Content-Type")).contains("application/json");
     assertThat(request.getHeader("User-Agent")).isEqualTo(USER_AGENT_HEADER);

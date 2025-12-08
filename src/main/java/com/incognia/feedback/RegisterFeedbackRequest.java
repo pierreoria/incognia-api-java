@@ -20,4 +20,5 @@ public class RegisterFeedbackRequest {
   String externalId;
   Instant expiresAt;
   PersonID personId;
+  @Builder.Default boolean dryRun = false;
 }

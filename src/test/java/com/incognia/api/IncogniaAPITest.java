@@ -477,11 +477,12 @@ class IncogniaAPITest {
     String requestToken = "request-token";
     String accountId = "account-id";
     String appVersion = "1.4.3";
-    Location location =
+    Instant collectedAt = Instant.parse("2025-12-08T12:00:00Z");
+    Location location = 
         Location.builder()
             .latitude("40.74836007062138")
             .longitude("-73.98509720487937")
-            .collectedAt(Instant.now().toString())
+            .collectedAt(collectedAt)
             .build();
     String deviceOs = "Android";
     String externalId = "external-id";
@@ -491,6 +492,7 @@ class IncogniaAPITest {
     map.put("custom-property", "custom-value");
     PersonID personId = PersonID.ofCPF("12345678901");
 
+    System.out.println("a");
     dispatcher.setExpectedTransactionRequestBody(
         PostTransactionRequestBody.builder()
             .requestToken(requestToken)
@@ -617,11 +619,12 @@ class IncogniaAPITest {
     String externalId = "external-id";
     String policyId = "policy-id";
     String storeId = "store-id";
-    Location location =
+    Instant collectedAt = Instant.parse("2025-12-08T12:00:00Z");
+    Location location = 
         Location.builder()
             .latitude("40.74836007062138")
             .longitude("-73.98509720487937")
-            .collectedAt(Instant.now().toString())
+            .collectedAt(collectedAt)
             .build();
     Coupon coupon =
         Coupon.builder()
@@ -841,8 +844,9 @@ class IncogniaAPITest {
             .externalId(externalId)
             .signupId(signupId)
             .personId(personId)
-            .build(),
-        dryRun);
+            .dryRun(dryRun)
+            .build()
+        );
   }
 
   @ParameterizedTest
@@ -879,8 +883,9 @@ class IncogniaAPITest {
             .externalId(externalId)
             .signupId(signupId)
             .expiresAt(expiresAt)
-            .build(),
-        dryRun);
+            .dryRun(dryRun)
+            .build()
+        );
   }
 
   @Test
@@ -908,7 +913,6 @@ class IncogniaAPITest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("'account id' cannot be empty");
   }
-
 
 // aqui tem que dale mais um assert: faltando type
   @Test
@@ -938,6 +942,7 @@ class IncogniaAPITest {
   }
 
   private void assertTransactionAssessment(TransactionAssessment transactionAssessment) {
+    System.out.println("hello");
     assertThat(transactionAssessment)
         .extracting("id", "riskAssessment", "deviceId")
         .containsExactly(

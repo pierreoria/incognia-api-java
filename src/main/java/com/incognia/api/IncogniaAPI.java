@@ -2,6 +2,7 @@ package com.incognia.api;
 
 import com.incognia.api.clients.TokenAwareNetworkingClient;
 import com.incognia.common.Address;
+import com.incognia.common.Location;
 import com.incognia.common.exceptions.IncogniaAPIException;
 import com.incognia.common.exceptions.IncogniaException;
 import com.incognia.common.utils.Asserts;
@@ -141,49 +142,10 @@ public class IncogniaAPI {
     return INSTANCES.get(credentials);
   }
 
-  /**
-   * Registers a new signup for the given request token and address. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/signup-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *      Address address = Address address =
-   *         Address.builder()
-   *             .structuredAddress(
-   *                 StructuredAddress.builder()
-   *                     .countryCode("US")
-   *                     .countryName("United States of America")
-   *                     .locale("en-US")
-   *                     .state("NY")
-   *                     .city("New York City")
-   *                     .borough("Manhattan")
-   *                     .neighborhood("Midtown")
-   *                     .street("W 34th St.")
-   *                     .number("20")
-   *                     .complements("Floor 2")
-   *                     .postalCode("10001")
-   *                     .build())
-   *             .coordinates(new Coordinates(40.74836007062138, -73.98509720487937))
-   *             .build();
-   *      RegisterSignupRequest signupRequest = RegisterSignupRequest.builder().requestToken(requestToken).address(address).build();
-   *      SignupAssessment assessment = api.registerSignup(signupRequest);
-   * } catch (IncogniaAPIException e) {
-   *      //Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *      //Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterSignupRequest} model that contains the properties we need to
-   *     make an assessment.
-   * @return the assessment
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
+ 
   public SignupAssessment registerSignup(RegisterSignupRequest request) throws IncogniaException {
     Asserts.assertNotNull(request, "register signup request");
+    Asserts.assertNotNull(request.getPolicyId(), "policy id");
     Optional<Address> address = Optional.ofNullable(request.getAddress());
     PostSignupRequestBody postSignupRequestBody =
         PostSignupRequestBody.builder()
@@ -207,69 +169,13 @@ public class IncogniaAPI {
         "api/v2/onboarding/signups", postSignupRequestBody, SignupAssessment.class);
   }
 
-  /**
-   * Registers a new transaction for the given request. Check <a
-   * href="https://dash.incognia.com/api-reference#operation/transaction-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *   Map<AddressType, Address> addresses =
-   *       Map.of(
-   *           AddressType.SHIPPING,
-   *               Address.builder()
-   *                   .structuredAddress(
-   *                       StructuredAddress.builder()
-   *                           .countryCode("US")
-   *                           .countryName("United States")
-   *                           .locale("en-US")
-   *                           .state("CA")
-   *                           .city("San Francisco")
-   *                           .street("Main St")
-   *                           .number("123")
-   *                           .postalCode("94105")
-   *                           .build())
-   *                   .coordinates(new Coordinates(37.7749, -122.4194))
-   *                   .build());
-   *
-   *   RegisterTransactionRequest transactionRequest =
-   *       RegisterTransactionRequest.builder()
-   *           .installationId("installation-id")
-   *           .requestToken("request-token")
-   *           .policyId("policy-id")
-   *           .appVersion("1.2.3")
-   *           .deviceOs("android")
-   *           .accountId("user-account-001")
-   *           .externalId("ext-user-id-789")
-   *           .storeId("store-987")
-   *           .type("payment") // e.g. "login" or "payment"
-   *           .addresses(addresses)
-   *           .customProperties(Map.of("key", "value"))
-   *           .personId(PersonID.ofCPF("11725849070"))
-   *           // Optional: evaluation query parameter (eval=true/false)
-   *           .shouldEvaluateTransaction(true)
-   *           .build();
-   *
-   *   TransactionAssessment assessment = api.registerTransaction(transactionRequest);
-   * } catch (IncogniaAPIException e) {
-   *   // Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *   // Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterTransactionRequest} model that contains the properties we need
-   *     to make an assessment.
-   * @return the assessment
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
+  
   public TransactionAssessment registerTransaction(RegisterTransactionRequest request)
       throws IncogniaException {
     Asserts.assertNotNull(request, "register transaction request");
     Asserts.assertNotEmpty(request.getAccountId(), "account id");
     Asserts.assertNotEmpty(request.getType(), "type");
+    Asserts.assertNotNull(request.getPolicyId(), "policy id");
     List<TransactionAddress> transactionAddresses =
         addressMapToTransactionAddresses(request.getAddresses());
     PostTransactionRequestBody requestBody =
@@ -307,50 +213,8 @@ public class IncogniaAPI {
         queryParameters);
   }
 
-  /**
-   * Registers a new feedback event (e.g. marking a previous assessment as fraud/legit/reset). Check <a
-   * href="https://dash.incognia.com/api-reference#operation/feedback-post">the docs</a><br>
-   * Example:
-   *
-   * <pre>{@code
-   * IncogniaAPI api = IncogniaAPI.init("client-id", "client-secret");
-   * try {
-   *   Instant now = Instant.now();
-   *   Instant expiresAt = now.plus(1, ChronoUnit.DAYS);
-   *
-   *   RegisterFeedbackRequest feedbackRequest =
-   *       RegisterFeedbackRequest.builder()
-   *           .feedbackEvent(FeedbackEvent.RESET)
-   *           .occurredAt(now)
-   *           .installationId("installation-id")   // optional, but recommended when available
-   *           .sessionToken("session-token")       // optional
-   *           .accountId("user-account-001")       // optional, depending on your identifiers
-   *           .externalId("ext-user-id-789")       // optional
-   *           .requestToken("request-token")       // optional
-   *           .signupId("signup-id-123")           // optional - set the identifier that matches the event target
-   *           .loginId("login-id-456")             // optional
-   *           .paymentId("payment-id-789")         // optional
-   *           .personId(PersonID.ofCPF("11725849070")) // optional
-   *           .expiresAt(expiresAt)                // optional (used by some feedback events)
-   *           .build();
-   *
-   *   // dryRun=true validates/registers without persisting the feedback on the server
-   *   api.registerFeedback(feedbackRequest, false);
-   * } catch (IncogniaAPIException e) {
-   *   // Some api error happened (invalid data, invalid credentials)
-   * } catch (IncogniaException e) {
-   *   // Something unexpected happened
-   * }
-   * }</pre>
-   *
-   * @param request the {@link RegisterFeedbackRequest} model that contains the feedback event and the
-   *     identifiers used to associate it with a previous assessment.
-   * @param dryRun whether the request should be executed in dry-run mode (sent with the {@code dry_run}
-   *     query parameter).
-   * @throws IncogniaAPIException in case of api errors
-   * @throws IncogniaException in case of unexpected errors
-   */
-  public void registerFeedback(RegisterFeedbackRequest request, boolean dryRun)
+
+  public void registerFeedback(RegisterFeedbackRequest request)
       throws IncogniaException {
     Asserts.assertNotNull(request, "register feedback request");
     Asserts.assertNotNull(request.getFeedbackEvent(), "feedback event");
@@ -374,7 +238,7 @@ public class IncogniaAPI {
             .build();
 
     Map<String, String> queryParameters = new HashMap<>();
-    queryParameters.put(DRY_RUN_PARAMETER, String.valueOf(dryRun));
+    queryParameters.put(DRY_RUN_PARAMETER, String.valueOf(request.isDryRun()));
     tokenAwareNetworkingClient.doPost("api/v2/feedbacks", requestBody, queryParameters);
   }
 
